@@ -14,6 +14,6 @@ media_player:
     slave: <Optional value, if you have a CXN, enter its IP address here, so you can control the CXA's volume through the CXN>
 ```
 
-Make sure you copy your SSH key to the raspberry pi, so you can issue commands over SSH without providing your password.
+Make sure you copy the SSH key from your Home Assistance instance to the raspberry pi, so you can issue commands over SSH without providing your password.
 
 You can use the ssh-copy-id command for that.
