@@ -16,4 +16,4 @@ media_player:
 
 Make sure you copy the SSH key from your Home Assistance instance to the raspberry pi, so you can issue commands over SSH without providing your password.
 
-You can use the ssh-copy-id command for that.
+You can use the <b>ssh-keygen</b> and <b>ssh-copy-id</b> commands for that.
