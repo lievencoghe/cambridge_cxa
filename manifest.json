@@ -1,7 +1,7 @@
 {
   "domain": "cambridge_cxa",
   "name": "Cambridge Audio CXA",
-  "documentation": "https://github.com/lievencoghe/cambridge_audio_cxa",
+  "documentation": "https://github.com/lievencoghe/cambridge_cxa",
   "requirements": [],
   "dependencies": [],
   "codeowners": [

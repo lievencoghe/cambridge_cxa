@@ -4,7 +4,7 @@ This is using a remote Raspberry Pi for example that has an USB-to-serial
 connection to the amplifier.
 
 For more details about this platform, please refer to the documentation at
-https://github.com/lievencoghe/cambridge_audio_cxa
+https://github.com/lievencoghe/cambridge_cxa
 """
 
 import logging
