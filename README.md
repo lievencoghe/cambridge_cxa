@@ -17,7 +17,7 @@ connection: &cambridge
               9600n81,local
 ```
 
-On your Home Assistant, reate a directory called `cambridge_cxa` under the `custom_components` directory, and save the files from this repo in there.
+On your Home Assistant, create a directory called `cambridge_cxa` under the `custom_components` directory, and save the files from this repo in there.
 
 Then, add the following to your configuration.yaml file:
 
