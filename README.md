@@ -3,7 +3,7 @@ Home Assistant Custom Component for controlling Cambridge Audio CXA amplifiers
 
 This component assumes you have a seperate device like a Raspberry Pi that has a USB to Serial connection to the CXA. You'll need to install ser2net on that Raspberry Pi, so the serial port can be accessed over the network.
 
-Add a config like this to your `ser2net.yaml` file:
+Add a config like this to your `/etc/ser2net.yaml` file on the Raspberry Pi:
 
 ```
 connection: &cambridge
