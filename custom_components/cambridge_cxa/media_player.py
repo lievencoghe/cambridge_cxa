@@ -4,16 +4,15 @@ This is using a remote Raspberry Pi for example that has an USB-to-serial
 connection to the amplifier.
 
 For more details about this platform, please refer to the documentation at
-https://github.com/lievencoghe/cambridge_cxa
+https://github.com/lievencoghe/cambridge_audio_cxa
 """
 
 import logging
 import urllib.request
-import requests
-import subprocess
 import voluptuous as vol
+import socket
 
-from homeassistant.components.media_player import MediaPlayerDevice, PLATFORM_SCHEMA
+from homeassistant.components.media_player import MediaPlayerEntity, PLATFORM_SCHEMA
 
 from homeassistant.components.media_player.const import (
     SUPPORT_SELECT_SOURCE,
@@ -26,20 +25,32 @@ from homeassistant.components.media_player.const import (
 
 from homeassistant.const import (
     CONF_HOST,
+    CONF_PORT,
     CONF_NAME,
-    CONF_USERNAME,
     CONF_SLAVE,
     CONF_TYPE,
     STATE_OFF,
     STATE_ON,
 )
+
 import homeassistant.helpers.config_validation as cv
 
-__version__ = "0.1"
+import homeassistant.loader as loader
+
+__version__ = "0.3"
 
 _LOGGER = logging.getLogger(__name__)
 
+
 SUPPORT_CXA = (
+    SUPPORT_SELECT_SOURCE
+    | SUPPORT_SELECT_SOUND_MODE
+    | SUPPORT_TURN_OFF
+    | SUPPORT_TURN_ON
+    | SUPPORT_VOLUME_MUTE
+)
+
+SUPPORT_CXA_WITH_CXN = (
     SUPPORT_SELECT_SOURCE
     | SUPPORT_SELECT_SOUND_MODE
     | SUPPORT_TURN_OFF
@@ -49,12 +60,13 @@ SUPPORT_CXA = (
 )
 
 DEFAULT_NAME = "Cambridge Audio CXA"
+DEVICE_CLASS = "receiver"
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
         vol.Required(CONF_HOST): cv.string,
-        vol.Required(CONF_USERNAME): cv.string,
-        vol.Required(CONF_TYPE): cv.string,
+        vol.Required(CONF_PORT): cv.port,
+        vol.Required(CONF_TYPE): cv.string,      
         vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
         vol.Optional(CONF_SLAVE, default="not set"): cv.string,
     }
@@ -134,31 +146,33 @@ AMP_REPLY_MUTE_OFF = "#02,03,0"
 
 def setup_platform(hass, config, add_devices, discovery_info=None):
     host = config.get(CONF_HOST)
+    port = config.get(CONF_PORT)
     name = config.get(CONF_NAME)
-    username = config.get(CONF_USERNAME)
     cxatype = config.get(CONF_TYPE)
     cxnhost = config.get(CONF_SLAVE)
 
     if host is None:
-        _LOGGER.error("No SSH relay host found in configuration.yaml for Cambridge CXA")
+        _LOGGER.error("No IP address for relay host found in configuration.yaml for Cambridge CXA")
         return
 
-    if username is None:
-        _LOGGER.error("No SSH relay username found in configuration.yaml for Cambridge CXA")
+    if port is None:
+        _LOGGER.error("No TCP port for relay host found in configuration.yaml for Cambridge CXA")
         return
 
     if cxatype is None:
         _LOGGER.error("No CXA type found in configuration.yaml file. Possible values are CXA61, CXA81")
         return
 
-    add_devices([CambridgeCXADevice(host, name, username, cxatype, cxnhost)])
+    add_devices([CambridgeCXADevice(hass, host, port, name, cxatype, cxnhost)])
 
 
-class CambridgeCXADevice(MediaPlayerDevice):
-    def __init__(self, host, name, username, cxatype, cxnhost):
+class CambridgeCXADevice(MediaPlayerEntity):
+    def __init__(self, hass, host, port, name, cxatype, cxnhost):
         _LOGGER.info("Setting up Cambridge CXA")
+        self._hass = hass
         self._host = host
-        self._mediasource = ""
+        self._port = port
+        self._mediasource = "#04,01,00"
         self._speakersactive = ""
         self._muted = AMP_REPLY_MUTE_OFF
         self._name = name
@@ -172,28 +186,48 @@ class CambridgeCXADevice(MediaPlayerDevice):
             self._source_reply_list = NORMAL_INPUTS_AMP_REPLY_CXA81.copy()
         self._sound_mode_list = SOUND_MODES.copy()
         self._state = STATE_OFF
-        self._username = username
         self._cxnhost = cxnhost
-        self.update()
 
     def update(self):
-        self._pwstate = self.ssh_command(AMP_CMD_GET_PWSTATE)[0:8]
-        _LOGGER.debug("CXA - update called. State is: %s", self._pwstate)
-        if AMP_REPLY_PWR_ON in self._pwstate:
-            self._mediasource = self.ssh_command(AMP_CMD_GET_CURRENT_SOURCE)[0:9]
-            _LOGGER.debug("CXA - get current source called. Source is: %s", self._mediasource)
-            
-            self._muted = self.ssh_command(AMP_CMD_GET_MUTE_STATE)[0:8]
-            _LOGGER.debug("CXA - current mute state is: %s", self._muted)
+        self._pwstate = self._getPowerState()
+        self._mediasource = self._getSelectInput()
+        self._muted = self._getMuteState()
 
-    def ssh_command(self, command):
-        """Establish an ssh connection and sends `command`."""
-        _LOGGER.debug("Sending command: %s", command)
-        result = subprocess.run(['ssh', self._username + '@' + self._host, 'tty=/dev/ttyUSB0; exec 4<$tty 5>$tty; stty -F $tty 9600 -echo; echo "' + command + '" >&5; read reply <&4; echo $reply'], shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
-        return result.stdout.decode()
+    def _command(self, command):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((self._host, self._port))
+        command2 = command + "\r"
+        s.send(command2.encode('utf-8'))     
+        s.close()
+
+    def _getPowerState(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((self._host, self._port))
+        command = AMP_CMD_GET_PWSTATE + "\r"
+        s.send(command.encode('utf-8'))
+        data = s.recv(64)
+        s.close()
+        return data.decode('utf-8').replace("\r","")
+    
+    def _getMuteState(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((self._host, self._port))
+        command = AMP_CMD_GET_MUTE_STATE + "\r"
+        s.send(command.encode('utf-8'))
+        data = s.recv(64)
+        s.close()
+        return data.decode('utf-8').replace("\r","")
+
+    def _getSelectInput(self):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((self._host, self._port))
+        command = AMP_CMD_GET_CURRENT_SOURCE + "\r"
+        s.send(command.encode('utf-8'))
+        data = s.recv(64)
+        s.close()
+        return data.decode('utf-8').replace("\r","")
 
     def url_command(self, command):
-        _LOGGER.debug("Sending command: %s to: %s", command, self._cxnhost)
         urllib.request.urlopen("http://" + self._cxnhost + "/" + command).read()
 
     @property
@@ -221,32 +255,35 @@ class CambridgeCXADevice(MediaPlayerDevice):
 
     @property
     def state(self):
-        if "02,01,1" in self._pwstate:
+        #if "02,01,1" in self._pwstate:
+        if AMP_REPLY_PWR_ON in self._pwstate:
             return STATE_ON
         else:
             return STATE_OFF
 
     @property
     def supported_features(self):
+        if self._cxnhost:
+            return SUPPORT_CXA_WITH_CXN
         return SUPPORT_CXA
 
     def mute_volume(self, mute):
         if mute:
-            self.ssh_command(AMP_CMD_SET_MUTE_ON)
+            self._command(AMP_CMD_SET_MUTE_ON)
         else:
-            self.ssh_command(AMP_CMD_SET_MUTE_OFF)
+            self._command(AMP_CMD_SET_MUTE_OFF)
 
     def select_sound_mode(self, sound_mode):
-        self.ssh_command(self._sound_mode_list[sound_mode])
+        self._command(self._sound_mode_list[sound_mode])
 
     def select_source(self, source):
-        self.ssh_command(self._source_list[source])
+        self._command(self._source_list[source])
 
     def turn_on(self):
-        self.ssh_command(AMP_CMD_SET_PWR_ON)
+        self._command(AMP_CMD_SET_PWR_ON)
 
     def turn_off(self):
-        self.ssh_command(AMP_CMD_SET_PWR_OFF)
+        self._command(AMP_CMD_SET_PWR_OFF)
 
     def volume_up(self):
         if self._cxnhost != "not set":
