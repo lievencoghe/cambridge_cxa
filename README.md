@@ -177,4 +177,4 @@ media_player:
     slave: <Optional value, if you have a CXN, enter its IP address here, so you can control the CXA's volume through the CXN>
 ```
 
-Reboot Home Assistant, and see you have a new media_player entity for your CXA.
+Restart Home Assistant, and see you have a new media_player entity for your CXA.
