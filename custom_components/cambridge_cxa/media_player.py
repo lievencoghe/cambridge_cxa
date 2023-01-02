@@ -1,7 +1,5 @@
 """
-Support for interface with a Cambridge Audio CXA amplifier over RS-232.
-This is using a remote Raspberry Pi for example that has an USB-to-serial 
-connection to the amplifier.
+Support for controlling a Cambridge Audio CXA amplifier over a serial connection.
 
 For more details about this platform, please refer to the documentation at
 https://github.com/lievencoghe/cambridge_audio_cxa
@@ -10,7 +8,7 @@ https://github.com/lievencoghe/cambridge_audio_cxa
 import logging
 import urllib.request
 import voluptuous as vol
-import socket
+from serial import Serial
 
 from homeassistant.components.media_player import MediaPlayerEntity, PLATFORM_SCHEMA
 
@@ -24,8 +22,7 @@ from homeassistant.components.media_player.const import (
 )
 
 from homeassistant.const import (
-    CONF_HOST,
-    CONF_PORT,
+    CONF_DEVICE,
     CONF_NAME,
     CONF_SLAVE,
     CONF_TYPE,
@@ -37,7 +34,7 @@ import homeassistant.helpers.config_validation as cv
 
 import homeassistant.loader as loader
 
-__version__ = "0.3"
+__version__ = "0.4"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -64,11 +61,10 @@ DEVICE_CLASS = "receiver"
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
     {
-        vol.Required(CONF_HOST): cv.string,
-        vol.Required(CONF_PORT): cv.port,
+        vol.Required(CONF_DEVICE): cv.string,
         vol.Required(CONF_TYPE): cv.string,      
         vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
-        vol.Optional(CONF_SLAVE, default="not set"): cv.string,
+        vol.Optional(CONF_SLAVE): cv.string,
     }
 )
 
@@ -145,33 +141,27 @@ AMP_REPLY_MUTE_ON = "#02,03,1"
 AMP_REPLY_MUTE_OFF = "#02,03,0"
 
 def setup_platform(hass, config, add_devices, discovery_info=None):
-    host = config.get(CONF_HOST)
-    port = config.get(CONF_PORT)
+    device = config.get(CONF_DEVICE)
     name = config.get(CONF_NAME)
     cxatype = config.get(CONF_TYPE)
     cxnhost = config.get(CONF_SLAVE)
 
-    if host is None:
-        _LOGGER.error("No IP address for relay host found in configuration.yaml for Cambridge CXA")
-        return
-
-    if port is None:
-        _LOGGER.error("No TCP port for relay host found in configuration.yaml for Cambridge CXA")
+    if device is None:
+        _LOGGER.error("No serial port defined in configuration.yaml for Cambridge CXA")
         return
 
     if cxatype is None:
         _LOGGER.error("No CXA type found in configuration.yaml file. Possible values are CXA61, CXA81")
         return
 
-    add_devices([CambridgeCXADevice(hass, host, port, name, cxatype, cxnhost)])
+    add_devices([CambridgeCXADevice(hass, device, name, cxatype, cxnhost)])
 
 
 class CambridgeCXADevice(MediaPlayerEntity):
-    def __init__(self, hass, host, port, name, cxatype, cxnhost):
+    def __init__(self, hass, device, name, cxatype, cxnhost):
         _LOGGER.info("Setting up Cambridge CXA")
         self._hass = hass
-        self._host = host
-        self._port = port
+        self._device = device
         self._mediasource = "#04,01,00"
         self._speakersactive = ""
         self._muted = AMP_REPLY_MUTE_OFF
@@ -187,45 +177,29 @@ class CambridgeCXADevice(MediaPlayerEntity):
         self._sound_mode_list = SOUND_MODES.copy()
         self._state = STATE_OFF
         self._cxnhost = cxnhost
-
+        self._serial = Serial(device, baudrate=9600, timeout=0.5, bytesize=8, parity="N", stopbits=1)
+        
     def update(self):
-        self._pwstate = self._getPowerState()
-        self._mediasource = self._getSelectInput()
-        self._muted = self._getMuteState()
+        self._pwstate = self._command_with_reply(AMP_CMD_GET_PWSTATE)
+        self._mediasource = self._command_with_reply(AMP_CMD_GET_CURRENT_SOURCE)
+        self._muted = self._command_with_reply(AMP_CMD_GET_MUTE_STATE)
 
     def _command(self, command):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((self._host, self._port))
-        command2 = command + "\r"
-        s.send(command2.encode('utf-8'))     
-        s.close()
-
-    def _getPowerState(self):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((self._host, self._port))
-        command = AMP_CMD_GET_PWSTATE + "\r"
-        s.send(command.encode('utf-8'))
-        data = s.recv(64)
-        s.close()
-        return data.decode('utf-8').replace("\r","")
+        try:
+            self._serial.flush()
+            self._serial.write((command+"\r").encode("utf-8"))
+            self._serial.flush()
+        except:
+            _LOGGER.error("Could not send command")
     
-    def _getMuteState(self):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((self._host, self._port))
-        command = AMP_CMD_GET_MUTE_STATE + "\r"
-        s.send(command.encode('utf-8'))
-        data = s.recv(64)
-        s.close()
-        return data.decode('utf-8').replace("\r","")
-
-    def _getSelectInput(self):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((self._host, self._port))
-        command = AMP_CMD_GET_CURRENT_SOURCE + "\r"
-        s.send(command.encode('utf-8'))
-        data = s.recv(64)
-        s.close()
-        return data.decode('utf-8').replace("\r","")
+    def _command_with_reply(self, command):
+        try:
+            self._serial.write((command+"\r").encode("utf-8"))
+            reply = self._serial.readline()
+            return(reply.decode("utf-8")).replace("\r","")
+        except:
+            _LOGGER.error("Could not send command")
+            return ""
 
     def url_command(self, command):
         urllib.request.urlopen("http://" + self._cxnhost + "/" + command).read()
@@ -255,7 +229,6 @@ class CambridgeCXADevice(MediaPlayerEntity):
 
     @property
     def state(self):
-        #if "02,01,1" in self._pwstate:
         if AMP_REPLY_PWR_ON in self._pwstate:
             return STATE_ON
         else:
@@ -286,13 +259,11 @@ class CambridgeCXADevice(MediaPlayerEntity):
         self._command(AMP_CMD_SET_PWR_OFF)
 
     def volume_up(self):
-        if self._cxnhost != "not set":
-            self.url_command("smoip/zone/state?pre_amp_mode=false")
-            self.url_command("smoip/zone/state?volume_step_change=+1")
-            self.url_command("smoip/zone/state?pre_amp_mode=true")
+        self.url_command("smoip/zone/state?pre_amp_mode=false")
+        self.url_command("smoip/zone/state?volume_step_change=+1")
+        self.url_command("smoip/zone/state?pre_amp_mode=true")
 
     def volume_down(self):
-        if self._cxnhost != "not set":
-            self.url_command("smoip/zone/state?pre_amp_mode=false")
-            self.url_command("smoip/zone/state?volume_step_change=-1")
-            self.url_command("smoip/zone/state?pre_amp_mode=true")
+        self.url_command("smoip/zone/state?pre_amp_mode=false")
+        self.url_command("smoip/zone/state?volume_step_change=-1")
+        self.url_command("smoip/zone/state?pre_amp_mode=true")
