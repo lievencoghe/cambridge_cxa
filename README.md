@@ -1,5 +1,4 @@
-# cambridge_cxa
-Home Assistant Custom Component for controlling Cambridge Audio CXA amplifiers
+# Home Assistant Custom Component for controlling Cambridge Audio CXA 61/81 amplifiers
 
 For this component to work, you'll need to have a serial connection between your Cambridge CXA amplifier and your Home Assistant instance.
 This can be either a direct serial connection, or you could use a remote device like a Raspberry Pi to provide the serial connection from your CXA to your Home Assistant instance. 
@@ -15,9 +14,9 @@ Then you need to add the following to your `configuration.yaml` file:
 ```
 media_player:
   - platform: cambridge_cxa
-    device: /dev/serial/by-id/<insert id here>
+    device: /dev/serial/by-id/<insert id of USB to serial device here>
     name: CXA
-    type: CXA81
+    type: CXA61 or CXA81
     slave: <Optional value, if you have a CXN, enter its IP address here, so you can control the CXA's volume through the CXN>
 ```
 
@@ -41,7 +40,7 @@ connection: &cambridge
       kickolduser: true
       telnet-brk-on-sync: true
     connector: serialdev,
-              /dev/serial/by-id/<id here>,
+              /dev/serial/by-id/<insert id of USB to serial device here>,
               9600n81,local
 ```
 
@@ -49,9 +48,9 @@ Make sure the ser2net service is enabled and running on your Raspberry Pi. Enter
 `sudo systemctl enable ser2net`
 `sudo systemctl start ser2net`
 
-Then, on the PC/Raspberry Pi/VM/... where your Home Assistant instance is running, connect to the serial port from the Raspberry Pi. We will do this using `socat`.
+Then, on the PC/Raspberry Pi/VM/... where your Home Assistant instance is running, we'll need to connect to the serial on the Raspberry Pi. We will do this using an utility called socat.
 
-Make sure `socat` is installed by running `sudo apt install socat`
+Make sure socat is installed by running `sudo apt install socat`
 
 Next, create a file `/etc/default/socat.conf` and add the following:
 
@@ -174,7 +173,7 @@ media_player:
   - platform: cambridge_cxa
     device: /dev/ttyCXA
     name: CXA
-    type: CXA81 or CXA61
+    type: CXA61 or CXA81
     slave: <Optional value, if you have a CXN, enter its IP address here, so you can control the CXA's volume through the CXN>
 ```
 
