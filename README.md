@@ -183,3 +183,10 @@ media_player:
 ```
 
 Restart Home Assistant, and see you have a new media_player entity for your CXA.
+
+Note: When running Home Assistant in Docker, you need to forward the serial port /dev/ttyCXA to your container as a volume, not a device! So add `-v /dev/ttyCXA:/dev/ttyCXA` to your docker command, or add this to your docker-composer file:
+```
+volumes:
+  - /dev/ttyCXA:/dev/ttyCXA
+```
+
