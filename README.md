@@ -35,7 +35,7 @@ If you installed ser2net version 3.x, add this to `/etc/ser2net.conf` file on th
 5000:raw:600:/dev/serial/by-id/<insert id of USB to serial device here>:9600 8DATABITS NONE 1STOPBIT
 ```
 
-If you installed ser2net version 4.x, ass this to `/etc/ser2net.yaml` file on the Raspberry Pi:
+If you installed ser2net version 4.x, add this to `/etc/ser2net.yaml` file on the Raspberry Pi:
 
 ```
 connection: &cambridge
