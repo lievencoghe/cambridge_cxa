@@ -60,7 +60,7 @@ Make sure socat is installed by running `sudo apt install socat`
 Next, create a file `/etc/default/socat.conf` and add the following:
 
 ```
-OPTIONS="pty,link=/dev/ttyCXA,raw,ignoreeof,echo=0 tcp:192.168.123.42:5000"
+OPTIONS="pty,link=/dev/ttyCXA,raw,ignoreeof,echo=0 tcp:<IP address of the Raspberry Pi>:5000"
 ```
 
 Change the IP address to the IP address of your Raspberry Pi. Leave port to 5000, unless you changed it in the `/etc/ser2net.yaml` file.
