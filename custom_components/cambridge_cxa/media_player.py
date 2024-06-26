@@ -10,15 +10,10 @@ import urllib.request
 import voluptuous as vol
 from serial import Serial
 
-from homeassistant.components.media_player import MediaPlayerEntity, PLATFORM_SCHEMA
-
-from homeassistant.components.media_player.const import (
-    SUPPORT_SELECT_SOURCE,
-    SUPPORT_SELECT_SOUND_MODE,
-    SUPPORT_TURN_OFF,
-    SUPPORT_TURN_ON,
-    SUPPORT_VOLUME_MUTE,
-    SUPPORT_VOLUME_STEP,
+from homeassistant.components.media_player import (
+    PLATFORM_SCHEMA,
+    MediaPlayerEntity,
+    MediaPlayerEntityFeature
 )
 
 from homeassistant.const import (
@@ -34,11 +29,12 @@ import homeassistant.helpers.config_validation as cv
 
 import homeassistant.loader as loader
 
-__version__ = "0.4"
+__version__ = "0.5"
 
 _LOGGER = logging.getLogger(__name__)
 
 
+"""
 SUPPORT_CXA = (
     SUPPORT_SELECT_SOURCE
     | SUPPORT_SELECT_SOUND_MODE
@@ -54,6 +50,24 @@ SUPPORT_CXA_WITH_CXN = (
     | SUPPORT_TURN_ON
     | SUPPORT_VOLUME_MUTE
     | SUPPORT_VOLUME_STEP
+)
+"""
+
+SUPPORT_CXA = (
+    MediaPlayerEntityFeature.SELECT_SOURCE
+    | MediaPlayerEntityFeature.SELECT_SOUND_MODE
+    | MediaPlayerEntityFeature.TURN_OFF
+    | MediaPlayerEntityFeature.TURN_ON
+    | MediaPlayerEntityFeature.VOLUME_MUTE
+)
+
+SUPPORT_CXA_WITH_CXN = (
+    MediaPlayerEntityFeature.SELECT_SOURCE
+    | MediaPlayerEntityFeature.SELECT_SOUND_MODE
+    | MediaPlayerEntityFeature.TURN_OFF
+    | MediaPlayerEntityFeature.TURN_ON
+    | MediaPlayerEntityFeature.VOLUME_MUTE
+    | MediaPlayerEntityFeature.VOLUME_STEP
 )
 
 DEFAULT_NAME = "Cambridge Audio CXA"
@@ -159,7 +173,7 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
 
 class CambridgeCXADevice(MediaPlayerEntity):
     def __init__(self, hass, device, name, cxatype, cxnhost):
-        _LOGGER.info("Setting up Cambridge CXA")
+        _LOGGER.debug("Setting up Cambridge CXA")
         self._hass = hass
         self._device = device
         self._mediasource = "#04,01,00"
@@ -177,7 +191,7 @@ class CambridgeCXADevice(MediaPlayerEntity):
         self._sound_mode_list = SOUND_MODES.copy()
         self._state = STATE_OFF
         self._cxnhost = cxnhost
-        self._serial = Serial(device, baudrate=9600, timeout=0.5, bytesize=8, parity="N", stopbits=1)
+        self._serial = Serial(device, baudrate=9600, timeout=2, bytesize=8, parity="N", stopbits=1)
         
     def update(self):
         self._pwstate = self._command_with_reply(AMP_CMD_GET_PWSTATE)
@@ -260,10 +274,4 @@ class CambridgeCXADevice(MediaPlayerEntity):
 
     def volume_up(self):
         self.url_command("smoip/zone/state?pre_amp_mode=false")
-        self.url_command("smoip/zone/state?volume_step_change=+1")
-        self.url_command("smoip/zone/state?pre_amp_mode=true")
-
-    def volume_down(self):
-        self.url_command("smoip/zone/state?pre_amp_mode=false")
-        self.url_command("smoip/zone/state?volume_step_change=-1")
-        self.url_command("smoip/zone/state?pre_amp_mode=true")
+        self
