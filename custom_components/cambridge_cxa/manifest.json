@@ -2,11 +2,13 @@
   "domain": "cambridge_cxa",
   "name": "Cambridge Audio CXA",
   "documentation": "https://github.com/lievencoghe/cambridge_cxa",
-  "requirements": [],
+  "issue_tracker": "https://github.com/lievencoghe/cambridge_cxa/issues",
+  "integration_type": "entity",
+  "requirements": ["serial"],
   "dependencies": [],
   "codeowners": [
     "@lievencoghe"
   ],
   "version": "0.5",
-  "iot_class": "local_push"
+  "iot_class": "local_polling"
 }
