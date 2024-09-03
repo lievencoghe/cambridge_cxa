@@ -4,7 +4,7 @@
   "documentation": "https://github.com/lievencoghe/cambridge_cxa",
   "issue_tracker": "https://github.com/lievencoghe/cambridge_cxa/issues",
   "integration_type": "entity",
-  "requirements": ["serial"],
+  "requirements": ["pyserial"],
   "dependencies": [],
   "codeowners": [
     "@lievencoghe"
