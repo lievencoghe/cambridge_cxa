@@ -8,6 +8,7 @@ In case you have a direct serial connection between your Cambridge CXA and Home 
 ## Direct serial connection
 
 On your Home Assistant, create a directory called `cambridge_cxa` under the `custom_components` directory, and save the files from this repo in there.
+Alternatively, you can install this component using HACS. Add custom repository lievencoghe/cambridge_cxa and install the component.
 
 Then you need to add the following to your `configuration.yaml` file:
 
